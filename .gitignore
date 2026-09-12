@@ -21,6 +21,7 @@ coverage/
 .env.local
 lint-report.txt
 .git-local-backup/
+AUDIT-HANDOFF.md
 
 # ---- 系统杂项 ----
 Thumbs.db
