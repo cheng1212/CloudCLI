@@ -1,0 +1,29 @@
+# ---- 依赖 / 构建产物 ----
+node_modules/
+dist/
+build/
+coverage/
+*.log
+
+# ---- Flutter 相关(不入库) ----
+/flutter-client-20260822/
+/flutter-mobile-20260831/
+/apk-dist/
+
+# ---- 本机基础设施(含 API key,严禁入库) ----
+/litellm/
+/scripts/start-cloudcli-stack.ps1
+/database/
+/logs/
+
+# ---- 环境与本地文件 ----
+.env
+.env.local
+lint-report.txt
+.git-local-backup/
+
+# ---- 系统杂项 ----
+Thumbs.db
+Desktop.ini
+.DS_Store
+__pycache__/
