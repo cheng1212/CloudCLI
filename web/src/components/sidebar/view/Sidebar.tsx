@@ -44,7 +44,7 @@ function Sidebar({
 }: SidebarProps) {
   const { t } = useTranslation(['sidebar', 'common']);
   const { isPWA } = useDeviceSettings({ trackMobile: false });
-  const { updateAvailable, restartRequired, latestVersion, currentVersion, releaseInfo, installMode } = useVersionCheck(
+  const { restartRequired, latestVersion, currentVersion, releaseInfo, installMode } = useVersionCheck(
     'siteboon',
     'claudecodeui',
   );
@@ -249,9 +249,7 @@ function Sidebar({
         <SidebarCollapsed
           onExpand={handleExpandSidebar}
           onShowSettings={onShowSettings}
-          updateAvailable={updateAvailable}
           restartRequired={restartRequired}
-          onShowVersionModal={() => setShowVersionModal(true)}
           t={t}
         />
       ) : (
@@ -364,12 +362,8 @@ function Sidebar({
               onNewSession(project);
             }}
             onCollapseSidebar={handleCollapseSidebar}
-            updateAvailable={updateAvailable}
             restartRequired={restartRequired}
-            releaseInfo={releaseInfo}
-            latestVersion={latestVersion}
             currentVersion={currentVersion}
-            onShowVersionModal={() => setShowVersionModal(true)}
             onShowSettings={onShowSettings}
             projectListProps={projectListProps}
             t={t}

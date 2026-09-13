@@ -4,7 +4,6 @@ import type { TFunction } from 'i18next';
 
 import { ScrollArea } from '../../../../shared/view/ui';
 import type { Project, LLMProvider } from '../../../../types/app';
-import type { ReleaseInfo } from '../../../../shared/types';
 import type { ConversationSearchResults, SearchProgress } from '../../hooks/useSidebarController';
 import type { ArchivedProjectListItem, ArchivedSessionListItem, RecentConversationListItem, SidebarSearchMode } from '../../types/types';
 import LLMProviderLogo from '../../../llm-provider-logo/LLMProviderLogo';
@@ -148,12 +147,8 @@ type SidebarContentProps = {
   selectedProject: Project | null;
   onNewSession: (project: Project) => void;
   onCollapseSidebar: () => void;
-  updateAvailable: boolean;
   restartRequired: boolean;
-  releaseInfo: ReleaseInfo | null;
-  latestVersion: string | null;
   currentVersion: string;
-  onShowVersionModal: () => void;
   onShowSettings: () => void;
   projectListProps: SidebarProjectListProps;
   t: TFunction;
@@ -211,12 +206,8 @@ export default function SidebarContent({
   selectedProject,
   onNewSession,
   onCollapseSidebar,
-  updateAvailable,
   restartRequired,
-  releaseInfo,
-  latestVersion,
   currentVersion,
-  onShowVersionModal,
   onShowSettings,
   projectListProps,
   t,
@@ -752,12 +743,8 @@ export default function SidebarContent({
 
       {!isRenamingOnMobile && (
         <SidebarFooter
-          updateAvailable={updateAvailable}
           restartRequired={restartRequired}
-          releaseInfo={releaseInfo}
-          latestVersion={latestVersion}
           currentVersion={currentVersion}
-          onShowVersionModal={onShowVersionModal}
           onShowSettings={onShowSettings}
           t={t}
         />
