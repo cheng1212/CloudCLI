@@ -7,6 +7,8 @@ import {
   ensureImageAssetsDir,
   isAllowedImageMimeType,
   openStoredAttachmentAsset,
+  removeStoredImageAssets,
+  verifyStoredImageAssets,
 } from '@/modules/assets/services/image-assets.service.js';
 
 const router = express.Router();
@@ -54,7 +56,7 @@ const attachmentUpload = multer({
  * returns their absolute paths for use in provider prompts and chat history.
  */
 router.post('/images', (req, res) => {
-  upload.array('images', 5)(req, res, (err: unknown) => {
+  upload.array('images', 5)(req, res, async (err: unknown) => {
     if (err) {
       const message = err instanceof Error ? err.message : 'Upload failed';
       return res.status(400).json({ error: message });
@@ -63,6 +65,14 @@ router.post('/images', (req, res) => {
     const files = Array.isArray(req.files) ? req.files : [];
     if (files.length === 0) {
       return res.status(400).json({ error: 'No image files provided' });
+    }
+
+    // The mimetype filter above only sees what the client declared; confirm
+    // the stored bytes really are the image format they claim to be.
+    const verifyError = await verifyStoredImageAssets(files);
+    if (verifyError) {
+      await removeStoredImageAssets(files);
+      return res.status(400).json({ error: verifyError });
     }
 
     res.json({ images: buildStoredImageRecords(files) });

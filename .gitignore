@@ -28,3 +28,6 @@ Thumbs.db
 Desktop.ini
 .DS_Store
 __pycache__/
+
+# 本地审计文档(不入公开仓库)
+FEATURE-AUDIT-20260914.md

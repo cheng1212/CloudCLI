@@ -210,3 +210,30 @@ ${PROVIDER_MODELS_TABLE_SCHEMA_SQL}
 CREATE INDEX IF NOT EXISTS idx_provider_models_provider_order
 ON provider_models(provider, sort_order, id);
 `;
+
+export const CRONS_TABLE_SCHEMA_SQL = `
+CREATE TABLE IF NOT EXISTS crons (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id TEXT NOT NULL,
+    name TEXT NOT NULL DEFAULT '',
+    prompt TEXT NOT NULL,
+    schedule TEXT NOT NULL,
+    active BOOLEAN NOT NULL DEFAULT 1,
+    run_count INTEGER NOT NULL DEFAULT 0,
+    last_run_at TEXT,
+    last_status TEXT,
+    next_fire_at TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+`;
+
+export const CRON_RUNS_TABLE_SCHEMA_SQL = `
+CREATE TABLE IF NOT EXISTS cron_runs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    cron_id INTEGER NOT NULL,
+    started_at TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'ok',
+    detail TEXT,
+    FOREIGN KEY (cron_id) REFERENCES crons(id) ON DELETE CASCADE
+);
+`;

@@ -6,6 +6,7 @@ import path from 'node:path';
 import Database from 'better-sqlite3';
 
 import { sessionsDb } from '@/modules/database/index.js';
+import { computeCostUsd, resolveModelPricing } from '@/shared/model-pricing.js';
 import type { AnyRecord } from '@/shared/types.js';
 import { AppError, getOpenCodeDatabasePath } from '@/shared/utils.js';
 
@@ -33,6 +34,18 @@ type TokenUsageResult = {
     input: number;
     output: number;
   };
+  /** Actual model id from the latest assistant turn, when the transcript records it. */
+  model?: string;
+  /** Session-cumulative token counters (the top-level fields are a latest-turn snapshot). */
+  cumulative?: {
+    inputTokens: number;
+    outputTokens: number;
+    cacheReadTokens: number;
+    cacheCreationTokens: number;
+  };
+  /** Estimated session cost in USD; null when the model's pricing is unknown. */
+  costUsd?: number | null;
+  costNote?: string;
   unsupported?: boolean;
   message?: string;
 };
@@ -136,6 +149,8 @@ function readClaudeTokenUsage(fileContent: string, configuredContextWindow: stri
   let outputTokens = 0;
   let cacheReadTokens = 0;
   let cacheCreationTokens = 0;
+  let lastModel: string | undefined;
+  const cumulative = { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0 };
   const lines = fileContent.trim().split('\n');
 
   for (let index = lines.length - 1; index >= 0; index -= 1) {
@@ -157,7 +172,21 @@ function readClaudeTokenUsage(fileContent: string, configuredContextWindow: stri
       );
       inputTokens = directInputTokens + cacheReadTokens + cacheCreationTokens;
       outputTokens = readUsageNumber(usage.output_tokens ?? usage.outputTokens);
-      break;
+
+      if (!lastModel) {
+        const model = (entry.message as AnyRecord | undefined)?.model;
+        if (typeof model === 'string' && model.trim()) {
+          lastModel = model.trim();
+        }
+      }
+
+      // Assistant usage entries are per-API-call, so billing-grade session
+      // totals need summing across the whole transcript, keeping cache
+      // counters separate (providers bill them at different rates).
+      cumulative.inputTokens += directInputTokens;
+      cumulative.outputTokens += outputTokens;
+      cumulative.cacheReadTokens += cacheReadTokens;
+      cumulative.cacheCreationTokens += cacheCreationTokens;
     } catch {
       // Skip malformed lines without discarding usage from earlier messages.
     }
@@ -176,6 +205,8 @@ function readClaudeTokenUsage(fileContent: string, configuredContextWindow: stri
     cacheCreationTokens,
     cacheTokens,
     breakdown: { input: inputTokens, output: outputTokens },
+    model: lastModel,
+    cumulative,
   };
 }
 
@@ -346,7 +377,26 @@ export function createProviderTokenUsageService(
       }
 
       const fileContent = await dependencies.readTextFile(sessionFilePath);
-      return readClaudeTokenUsage(fileContent, dependencies.getClaudeContextWindow());
+      const result = readClaudeTokenUsage(fileContent, dependencies.getClaudeContextWindow());
+
+      // Cost is estimated from session-cumulative counters at the latest
+      // turn's model rate (transcripts record one model per session today).
+      const resolved = resolveModelPricing(result.model ?? session.model);
+      const costUsd = computeCostUsd(
+        {
+          inputTokens: result.cumulative?.inputTokens ?? 0,
+          outputTokens: result.cumulative?.outputTokens ?? 0,
+          cacheReadTokens: result.cumulative?.cacheReadTokens ?? 0,
+          cacheCreationTokens: result.cumulative?.cacheCreationTokens ?? 0,
+        },
+        resolved.pricing,
+      );
+      return {
+        ...result,
+        model: result.model ?? (typeof session.model === 'string' ? session.model : undefined),
+        costUsd,
+        costNote: resolved.note,
+      };
     },
   };
 }

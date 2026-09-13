@@ -31,6 +31,8 @@ type StoredImageAsset = {
 type UploadedImageFile = {
   originalname: string;
   filename: string;
+  /** Absolute path multer wrote the upload to (diskStorage). */
+  path: string;
   size: number;
   mimetype: string;
 };
@@ -40,6 +42,71 @@ type UploadedAttachmentFile = UploadedImageFile;
 /** Returns whether one uploaded mime type may be stored as a chat image asset. */
 export function isAllowedImageMimeType(mimeType: string): boolean {
   return ALLOWED_IMAGE_MIME_TYPES.has(mimeType);
+}
+
+/**
+ * Content signatures for the raster members of ALLOWED_IMAGE_MIME_TYPES.
+ * Multer's fileFilter only sees the client-declared mimetype, which is trivial
+ * to spoof, so stored images are additionally verified against their real
+ * header bytes (expressjs/multer#114). SVG is text and gets a prefix check.
+ */
+const IMAGE_SIGNATURE_CHECKS: Array<{
+  mimeType: string;
+  matches: (head: Buffer) => boolean;
+}> = [
+  {
+    mimeType: 'image/png',
+    matches: (head) => head.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])),
+  },
+  {
+    mimeType: 'image/jpeg',
+    matches: (head) => head[0] === 0xff && head[1] === 0xd8 && head[2] === 0xff,
+  },
+  {
+    mimeType: 'image/gif',
+    matches: (head) => head.subarray(0, 3).toString('latin1') === 'GIF',
+  },
+  {
+    mimeType: 'image/webp',
+    matches: (head) => head.subarray(0, 4).toString('latin1') === 'RIFF' && head.subarray(8, 12).toString('latin1') === 'WEBP',
+  },
+];
+
+/**
+ * Verifies that every stored image upload's actual content matches its
+ * declared mime type. Returns null when all files are genuine, otherwise an
+ * error message naming the first mismatched file (the caller rejects the
+ * request and cleans up the already-stored copies).
+ */
+export async function verifyStoredImageAssets(files: UploadedImageFile[]): Promise<string | null> {
+  for (const file of files) {
+    const head = Buffer.alloc(64);
+    const handle = await fs.open(file.path, 'r');
+    try {
+      const { bytesRead } = await handle.read(head, 0, head.length, 0);
+      head.fill(0, bytesRead);
+    } finally {
+      await handle.close();
+    }
+
+    if (file.mimetype === 'image/svg+xml') {
+      if (!head.toString('utf8').trimStart().startsWith('<')) {
+        return `File content is not valid SVG: ${file.originalname}`;
+      }
+      continue;
+    }
+
+    const check = IMAGE_SIGNATURE_CHECKS.find((entry) => entry.mimeType === file.mimetype);
+    if (!check || !check.matches(head)) {
+      return `File content does not match its declared image type: ${file.originalname}`;
+    }
+  }
+  return null;
+}
+
+/** Removes stored upload copies after a rejected verification (best effort). */
+export async function removeStoredImageAssets(files: UploadedImageFile[]): Promise<void> {
+  await Promise.allSettled(files.map((file) => fs.unlink(file.path)));
 }
 
 /** Creates the global `~/.cloudcli/assets` folder if needed and returns it. */

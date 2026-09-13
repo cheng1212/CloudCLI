@@ -203,6 +203,12 @@ export const api = {
     }),
   getArchivedSessions: () =>
     authenticatedFetch('/api/providers/sessions/archived'),
+  // Forks one conversation: the new session shares the source transcript
+  // until its first message, where the CLI branches into an independent one.
+  forkSession: (sessionId) =>
+    authenticatedFetch(`/api/providers/sessions/${encodeURIComponent(sessionId)}/fork`, {
+      method: 'POST',
+    }),
   // Resolves one session (by app id or provider-native id) to its metadata and
   // owning project — used when a /session/<id> URL isn't in loaded payloads.
   sessionDetails: (sessionId) =>

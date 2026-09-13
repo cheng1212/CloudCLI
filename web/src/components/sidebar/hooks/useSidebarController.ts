@@ -920,6 +920,25 @@ export function useSidebarController({
     }
   }, [fetchArchivedSessions, fetchRecentConversationsPage, onSessionDelete, sessionDeleteConfirmation, t]);
 
+  // Forks a conversation into an independent copy; the sidebar list refreshes
+  // and the fork appears with a " (fork)" suffix once its title is chosen.
+  const forkConversation = useCallback(async (sessionId: string): Promise<string | null> => {
+    try {
+      const response = await api.forkSession(sessionId);
+      const payload = await response.json().catch(() => null);
+      if (response.ok && payload?.data?.sessionId) {
+        await fetchRecentConversationsPage(0, false);
+        return payload.data.sessionId as string;
+      }
+      console.error('[Sidebar] Failed to fork session:', { status: response.status, payload });
+      alert(t('messages.forkSessionFailed', '会话分叉失败'));
+    } catch (error) {
+      console.error('[Sidebar] Error forking session:', error);
+      alert(t('messages.forkSessionError', '会话分叉出错'));
+    }
+    return null;
+  }, [fetchRecentConversationsPage, t]);
+
   const enterBulkSelectionMode = useCallback(() => {
     setIsBulkSelectionMode(true);
     setBulkSelectedSessionIds(new Set());
@@ -1225,6 +1244,7 @@ export function useSidebarController({
     saveProjectName,
     showDeleteSessionConfirmation,
     confirmDeleteSession,
+    forkConversation,
     isBulkSelectionMode,
     bulkSelectedSessionIds,
     isBulkDeleteRunning,

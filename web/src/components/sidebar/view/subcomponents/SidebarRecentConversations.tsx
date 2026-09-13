@@ -1,4 +1,4 @@
-import { Check, ChevronRight, Edit2, ListChecks, MessageSquare, Pin, PinOff, Trash2, X } from 'lucide-react';
+import { Check, ChevronRight, Copy, Edit2, ListChecks, MessageSquare, Pin, PinOff, Trash2, X } from 'lucide-react';
 import type { KeyboardEvent, MouseEvent } from 'react';
 import type { TFunction } from 'i18next';
 
@@ -36,6 +36,7 @@ type SidebarRecentConversationsProps = {
   onStartEditingSession: (sessionId: string, initialName: string) => void;
   onSaveEditingSession: (projectName: string, sessionId: string, summary: string, provider: LLMProvider) => void;
   onDeleteConversation: (session: DeleteConversationPayload) => void;
+  onForkConversation: (sessionId: string) => Promise<string | null>;
   editingSession: string | null;
   editingSessionName: string;
   onEditingSessionNameChange: (value: string) => void;
@@ -85,6 +86,7 @@ export default function SidebarRecentConversations({
   onStartEditingSession,
   onSaveEditingSession,
   onDeleteConversation,
+  onForkConversation,
   editingSession,
   editingSessionName,
   onEditingSessionNameChange,
@@ -353,6 +355,19 @@ export default function SidebarRecentConversations({
                     aria-label={t('recent.rename', 'Rename')}
                   >
                     <Edit2 className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6"
+                    onClick={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      void onForkConversation(conversation.sessionId);
+                    }}
+                    aria-label={t('recent.fork', 'Fork')}
+                  >
+                    <Copy className="h-3.5 w-3.5" />
                   </Button>
                   <Button
                     variant="ghost"

@@ -38,13 +38,25 @@ export default function TokenUsageSummary({ usage, onClick }: TokenUsageSummaryP
   const inputTokens = readUsageNumber(usage?.inputTokens ?? breakdown?.input);
   const outputTokens = readUsageNumber(usage?.outputTokens ?? breakdown?.output);
   const usedTokens = readUsageNumber(usage?.used) || inputTokens + outputTokens;
+  const costUsd = typeof usage?.costUsd === 'number' && Number.isFinite(usage.costUsd)
+    ? usage.costUsd
+    : null;
+  const costLabel = costUsd === null
+    ? null
+    : costUsd > 0 && costUsd < 0.01
+      ? `$${costUsd.toFixed(4)}`
+      : `$${costUsd.toFixed(2)}`;
+  const costNote = typeof usage?.costNote === 'string' ? usage.costNote : undefined;
+  const title = costLabel
+    ? `${usedTokens.toLocaleString()} tokens used · est. ${costLabel}${costNote ? ` (${costNote})` : ''}`
+    : `${usedTokens.toLocaleString()} tokens used`;
 
   return (
     <button
       type="button"
       onClick={onClick}
       className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border/70 bg-background/70 px-2 text-xs text-muted-foreground shadow-sm transition-colors hover:border-primary/25 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:gap-2 sm:px-2.5"
-      title={`${usedTokens.toLocaleString()} tokens used`}
+      title={title}
       aria-label="Show token usage"
     >
       <span className="grid h-5 w-5 place-items-center rounded-md bg-primary/10 text-primary">
@@ -52,6 +64,11 @@ export default function TokenUsageSummary({ usage, onClick }: TokenUsageSummaryP
       </span>
       <span className="font-medium text-foreground">{formatTokenCount(usedTokens)}</span>
       <span className="hidden text-muted-foreground/70 sm:inline">tokens</span>
+      {costLabel && (
+        <span className="hidden font-medium text-foreground/80 sm:inline" data-testid="token-cost">
+          {costLabel}
+        </span>
+      )}
     </button>
   );
 }

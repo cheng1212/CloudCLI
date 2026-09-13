@@ -40,6 +40,7 @@ import {
     stopAllPlugins,
 } from './modules/plugins/index.js';
 import providerRoutes from './modules/providers/provider.routes.js';
+import cronRoutes, { startCronScheduler } from './modules/cron/cron.routes.js';
 import { voiceRoutes } from './modules/voice/index.js';
 import browserUseRoutes from './modules/browser-use/browser-use.routes.js';
 import { assetsRoutes } from './modules/assets/index.js';
@@ -190,6 +191,9 @@ app.use('/api/browser-use', authenticateToken, browserUseRoutes);
 // Unified provider MCP routes (protected)
 app.use('/api/providers', authenticateToken, providerRoutes);
 
+// Session cron scheduler routes (protected)
+app.use('/api/crons', authenticateToken, cronRoutes);
+
 // Agent API Routes (uses API key authentication)
 app.use('/api/agent', agentRoutes);
 
@@ -325,6 +329,10 @@ async function startServer() {
     try {
         // Initialize authentication database
         await initializeDatabase();
+
+        // Session cron scheduler — must start after migrations have created
+        // its tables (module-scope start would race schema creation).
+        startCronScheduler();
 
         // Configure Web Push (VAPID keys)
         configureWebPush();

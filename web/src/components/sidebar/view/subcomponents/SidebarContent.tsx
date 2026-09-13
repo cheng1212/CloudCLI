@@ -121,6 +121,7 @@ type SidebarContentProps = {
     sessionTitle: string;
     provider: string;
   }) => void;
+  onForkConversation: (sessionId: string) => Promise<string | null>;
   // Bulk session management (multi-select delete) for the recent-conversations
   // list. The selection lives in useSidebarController so the action bar and
   // confirmation modal stay in sync with the row checkboxes.
@@ -185,6 +186,7 @@ export default function SidebarContent({
   onStartEditingSession,
   onSaveEditingSession,
   onDeleteConversation,
+  onForkConversation,
   isBulkSelectionMode,
   bulkSelectedSessionIds,
   isBulkDeleteRunning,
@@ -433,6 +435,7 @@ export default function SidebarContent({
             onStartEditingSession={onStartEditingSession}
             onSaveEditingSession={onSaveEditingSession}
             onDeleteConversation={onDeleteConversation}
+            onForkConversation={onForkConversation}
             editingSession={editingSession}
             editingSessionName={editingSessionName}
             onEditingSessionNameChange={onEditingSessionNameChange}

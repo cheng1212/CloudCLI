@@ -103,6 +103,7 @@ function Sidebar({
     saveProjectName,
     showDeleteSessionConfirmation,
     confirmDeleteSession,
+    forkConversation,
     isBulkSelectionMode,
     bulkSelectedSessionIds,
     isBulkDeleteRunning,
@@ -265,6 +266,7 @@ function Sidebar({
             archivedSessions={archivedSessions}
             archivedSessionsCount={archivedSessionsCount}
             isArchivedSessionsLoading={isArchivedSessionsLoading}
+            onForkConversation={forkConversation}
             recentConversations={recentConversations}
             recentConversationsTotal={recentConversationsTotal}
             recentConversationsHasMore={recentConversationsHasMore}

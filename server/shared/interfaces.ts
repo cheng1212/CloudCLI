@@ -35,6 +35,8 @@ export interface IProviderRuntime {
     context: ProviderRuntimeContext,
   ): Promise<unknown>;
   abort(sessionId: string): boolean | Promise<boolean>;
+  /** Marks an app session so its next run resumes the source transcript with forkSession. */
+  markFork?(appSessionId: string, resumeProviderSessionId: string): void;
   permissions?: ProviderRuntimePermissionGateway;
 }
 

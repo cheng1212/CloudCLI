@@ -2,6 +2,8 @@ import { Database } from 'better-sqlite3';
 
 import {
   APP_CONFIG_TABLE_SCHEMA_SQL,
+  CRON_RUNS_TABLE_SCHEMA_SQL,
+  CRONS_TABLE_SCHEMA_SQL,
   LAST_SCANNED_AT_SQL,
   NOTIFICATION_CHANNEL_ENDPOINTS_TABLE_SCHEMA_SQL,
   PROJECTS_TABLE_SCHEMA_SQL,
@@ -485,6 +487,10 @@ export const runMigrations = (db: Database) => {
     db.exec('CREATE INDEX IF NOT EXISTS idx_notification_channel_endpoints_user_channel ON notification_channel_endpoints(user_id, channel)');
     db.exec('CREATE INDEX IF NOT EXISTS idx_notification_channel_endpoints_enabled ON notification_channel_endpoints(enabled)');
     db.exec(PROVIDER_MODELS_TABLE_SCHEMA_SQL);
+    db.exec(CRONS_TABLE_SCHEMA_SQL);
+    db.exec(CRON_RUNS_TABLE_SCHEMA_SQL);
+    db.exec('CREATE INDEX IF NOT EXISTS idx_crons_session_id ON crons(session_id)');
+    db.exec('CREATE INDEX IF NOT EXISTS idx_cron_runs_cron_id ON cron_runs(cron_id)');
     const providerModelsTableInfo = db.prepare('PRAGMA table_info(provider_models)').all() as { name: string }[];
     addColumnToTableIfNotExists(
       db,

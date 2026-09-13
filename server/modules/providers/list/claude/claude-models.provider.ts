@@ -16,7 +16,7 @@ export const CLAUDE_PREDEFINED_MODELS: ProviderModelsDefinition = {
   // (DeepSeek / GLM / NVIDIA via claude-routes.json), and DEFAULT points at a
   // routed model so an unconfigured session still lands on a working endpoint.
   OPTIONS: [],
-  DEFAULT: 'deepseek-v4-flash',
+  DEFAULT: 'deepseek-flash',
 };
 
 export const findClaudeModelOption = (model: string | undefined | null): ProviderModelOption | null => {

@@ -42,6 +42,11 @@ const pendingToolApprovals = new Map();
 // terminal `complete` (aborted: true) to the client, so the run loop must not
 // emit a second one when its generator winds down.
 const abortedSessionIds = new Set();
+// App session ids forked from an existing conversation: the fork row starts
+// with no provider id of its own, so its first run resumes the SOURCE
+// transcript with `forkSession: true` and adopts the new id the CLI mints.
+// Key: app session id of the fork; value: provider id to resume from.
+const pendingSessionForks = new Map();
 // Query instances interrupted because a newer run took over their session id
 // (see addSession). Their run loops must stay silent on wind-down: the map
 // entry, the abort flag, and all client-facing events belong to the new run.
@@ -235,6 +240,11 @@ function mapCliOptionsToSDK(options = {}) {
   sdkOptions.disallowedTools = settings.disallowedTools || [];
 
   sdkOptions.model = routeSettings?.model || options.model || CLAUDE_PREDEFINED_MODELS.DEFAULT;
+
+  // Emit SDK `stream_event` partials so the runtime can forward text deltas
+  // as transient `stream_delta` frames (the full assistant message still
+  // arrives afterwards and remains the persisted record).
+  sdkOptions.includePartialMessages = true;
 
   // Unified routing: when the selected model id maps to a route, hand the CLI a
   // settings payload whose env block pins ANTHROPIC_BASE_URL / AUTH_TOKEN and
@@ -712,6 +722,15 @@ async function queryClaudeSDK(command, options = {}, ws, context) {
       routeSettings,
     });
 
+    // First turn of a forked session: resume the source transcript with
+    // forkSession so the CLI branches instead of appending to the original.
+    const forkResumeId = sessionId ? pendingSessionForks.get(sessionId) : undefined;
+    if (forkResumeId) {
+      pendingSessionForks.delete(sessionId);
+      sdkOptions.resume = forkResumeId;
+      sdkOptions.forkSession = true;
+    }
+
     const mcpServers = await loadMcpConfig(options.cwd);
     if (mcpServers) {
       sdkOptions.mcpServers = mcpServers;
@@ -853,6 +872,22 @@ async function queryClaudeSDK(command, options = {}, ws, context) {
     // Process streaming messages
     console.log('Starting async generator loop for session:', capturedSessionId || 'NEW');
     for await (const message of queryInstance) {
+      // Partial deltas: forward text increments as transient stream_delta
+      // frames so the UI renders smoothly. They must not go through the
+      // normalizer (the full assistant message remains the persisted record).
+      if (message.type === 'stream_event') {
+        const delta = message.event?.delta;
+        if (delta?.type === 'text_delta' && typeof delta.text === 'string' && delta.text) {
+          ws.send(createNormalizedMessage({
+            kind: 'stream_delta',
+            content: delta.text,
+            sessionId: capturedSessionId || sessionId || null,
+            provider: 'claude',
+          }));
+        }
+        continue;
+      }
+
       // Capture session ID from first message
       if (message.session_id && !capturedSessionId) {
 
@@ -1042,8 +1077,15 @@ async function abortClaudeSDKSession(sessionId) {
     // terminal complete (the abort handler sends the aborted one).
     abortedSessionIds.add(sessionId);
 
-    // Call interrupt() on the query instance
-    await session.instance.interrupt();
+    // interrupt() resolves once the CLI acknowledges; if the process is wedged
+    // that promise may never settle and the client would sit in "stopping"
+    // forever. Race it against a timeout and force-close the input side either
+    // way — the turn is guaranteed to reach its terminal state.
+    const INTERRUPT_ACK_TIMEOUT_MS = 5_000;
+    await Promise.race([
+      session.instance.interrupt(),
+      new Promise((resolve) => setTimeout(resolve, INTERRUPT_ACK_TIMEOUT_MS)),
+    ]);
 
     // Release the held stdin stream; without this the CLI stays up for the rest
     // of the post-turn hold even though the user cancelled.
@@ -1119,9 +1161,16 @@ function reconnectSessionWriter(sessionId, newRawWs) {
   return true;
 }
 
+function markSessionForFork(appSessionId, resumeProviderSessionId) {
+  if (appSessionId && resumeProviderSessionId) {
+    pendingSessionForks.set(appSessionId, resumeProviderSessionId);
+  }
+}
+
 export const claudeRuntime = {
   run: queryClaudeSDK,
   abort: abortClaudeSDKSession,
+  markFork: markSessionForFork,
   permissions: {
     resolve: resolveToolApproval,
     listPending: getPendingApprovalsForSession,

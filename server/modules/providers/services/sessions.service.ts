@@ -238,6 +238,57 @@ export const sessionsService = {
   },
 
   /**
+   * Forks one existing conversation: a new app session row is created that
+   * shares the source's provider transcript until its first message, where
+   * the claude runtime resumes with `forkSession: true` so the CLI branches
+   * the transcript instead of appending to the original.
+   */
+  forkAppSession(
+    sessionId: string,
+  ): { sessionId: string; provider: LLMProvider; sessionName: string } {
+    const session = sessionsDb.getSessionById(sessionId);
+    if (!session) {
+      throw new AppError(`Session "${sessionId}" was not found.`, {
+        code: 'SESSION_NOT_FOUND',
+        statusCode: 404,
+      });
+    }
+
+    if (session.provider !== 'claude') {
+      throw new AppError(`Forking is currently supported for claude sessions only.`, {
+        code: 'FORK_PROVIDER_UNSUPPORTED',
+        statusCode: 400,
+      });
+    }
+
+    const providerSessionId = session.provider_session_id;
+    if (!providerSessionId) {
+      throw new AppError('This session has no provider transcript to fork yet.', {
+        code: 'FORK_SOURCE_EMPTY',
+        statusCode: 409,
+      });
+    }
+
+    const newSessionId = randomUUID();
+    const newSessionName = `${session.custom_name ?? 'Session'} (fork)`;
+    sessionsDb.createAppSession(newSessionId, session.provider, session.project_path ?? '', newSessionName);
+    if (session.model) {
+      sessionsDb.setSessionModel(newSessionId, session.model);
+    }
+    if (session.effort) {
+      sessionsDb.setSessionEffort(newSessionId, session.effort);
+    }
+
+    providerRegistry.resolveProvider(session.provider).runtime.markFork?.(newSessionId, providerSessionId);
+
+    return {
+      sessionId: newSessionId,
+      provider: session.provider,
+      sessionName: newSessionName,
+    };
+  },
+
+  /**
    * Resolves the provider-native id only for an explicit user copy action.
    * Normal session payloads continue to expose only the stable app id.
    */
