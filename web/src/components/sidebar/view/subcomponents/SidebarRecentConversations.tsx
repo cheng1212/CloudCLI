@@ -34,6 +34,8 @@ type SidebarRecentConversationsProps = {
   onRetry: () => void;
   /** When set, only conversations of this project id are listed. */
   projectFilterId?: string | null;
+  /** When set, only conversations of this agent (provider) are listed. */
+  providerFilter?: string;
   onTogglePin: (sessionId: string, isPinned: boolean) => void;
   onStartEditingSession: (sessionId: string, initialName: string) => void;
   onSaveEditingSession: (projectName: string, sessionId: string, summary: string, provider: LLMProvider) => void;
@@ -84,6 +86,7 @@ export default function SidebarRecentConversations({
   onConversationSelect,
   onLoadMore,
   onRetry,
+  providerFilter,
   projectFilterId,
   onTogglePin,
   onStartEditingSession,
@@ -104,9 +107,11 @@ export default function SidebarRecentConversations({
   onRequestBulkDelete,
   t,
 }: SidebarRecentConversationsProps) {
-  const visibleConversations = projectFilterId
-    ? conversations.filter((conversation) => conversation.projectId === projectFilterId)
-    : conversations;
+  const visibleConversations = conversations.filter((conversation) => {
+    if (projectFilterId && conversation.projectId !== projectFilterId) return false;
+    if (providerFilter && conversation.provider !== providerFilter) return false;
+    return true;
+  });
 
   if (isLoading && conversations.length === 0) {
     return <RecentConversationSkeleton />;

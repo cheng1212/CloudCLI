@@ -7,7 +7,10 @@ import { CLOUDCLI_WORDMARK_FONT_FAMILY } from '../../../../shared/constants';
 import { IS_PLATFORM } from '../../../../shared/utils';
 import { cn } from '../../../../lib/utils';
 import { api } from '../../../../utils/api';
-import type { Project } from '../../../../types/app';
+import LLMProviderLogo from '../../../llm-provider-logo/LLMProviderLogo';
+import { Bot } from 'lucide-react';
+import type { Project, LLMProvider } from '../../../../types/app';
+import type { RecentConversationListItem } from '../../types/types';
 import type { SidebarSearchMode } from '../../types/types';
 
 import GitHubStarBadge from './GitHubStarBadge';
@@ -15,6 +18,13 @@ import NewConversationDialog from './NewConversationDialog';
 
 const MOD_KEY =
   typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘' : 'Ctrl';
+
+const PROVIDER_LABELS: Record<string, string> = {
+  claude: 'Claude Code',
+  codex: 'Codex',
+  cursor: 'Cursor',
+  opencode: 'OpenCode',
+};
 
 type SidebarHeaderProps = {
   isPWA: boolean;
@@ -29,6 +39,9 @@ type SidebarHeaderProps = {
   onClearSearchFilter: () => void;
   searchMode: SidebarSearchMode;
   onSearchModeChange: (mode: SidebarSearchMode) => void;
+  recentConversations: RecentConversationListItem[];
+  filterAgent: LLMProvider | null;
+  onFilterAgentChange: (provider: LLMProvider | null) => void;
   conversationProjectFilter: string | null;
   onConversationProjectFilterChange: (projectId: string | null) => void;
   onRefresh: () => void;
@@ -53,6 +66,9 @@ export default function SidebarHeader({
   onClearSearchFilter,
   searchMode,
   onSearchModeChange,
+  recentConversations,
+  filterAgent,
+  onFilterAgentChange,
   conversationProjectFilter,
   onConversationProjectFilterChange,
   onRefresh,
@@ -85,11 +101,11 @@ export default function SidebarHeader({
 
   const removeProject = async (projectId: string, projectDisplayName: string) => {
     // eslint-disable-next-line no-alert
-    if (!window.confirm(t('search.deleteProjectConfirm', `确定删除项目「${projectDisplayName}」吗？（会话保留，仅移除项目）`))) {
+    if (!window.confirm(t('search.deleteProjectConfirm', `确定删除项目「${projectDisplayName}」吗？项目及其下所有会话都会被删除`))) {
       return;
     }
     try {
-      await api.deleteProject(projectId, false);
+      await api.deleteProject(projectId, true);
     } catch (error) {
       console.error('[Sidebar] Project delete error:', error);
     }
@@ -103,6 +119,28 @@ export default function SidebarHeader({
     setNewConversationOpen(true);
   };
 
+  // Per-agent project set: projects seen in that agent's conversations, plus
+  // unclaimed projects (no conversations yet) which every agent can use.
+  const providerProjectIds = new Map<string, Set<string>>();
+  const claimedProjectIds = new Set<string>();
+  for (const conversation of recentConversations) {
+    if (!conversation.projectId) continue;
+    claimedProjectIds.add(conversation.projectId);
+    if (!providerProjectIds.has(conversation.provider)) {
+      providerProjectIds.set(conversation.provider, new Set());
+    }
+    providerProjectIds.get(conversation.provider)!.add(conversation.projectId);
+  }
+  const visibleProjects = filterAgent
+    ? projects.filter((project) => {
+        const agentProjects = providerProjectIds.get(filterAgent);
+        return !claimedProjectIds.has(project.projectId) || Boolean(agentProjects?.has(project.projectId));
+      })
+    : projects;
+
+  const agentLabel = filterAgent
+    ? (PROVIDER_LABELS[filterAgent] ?? filterAgent)
+    : t('search.filterAllAgents', '全部智能体');
   const filterLabel = searchMode === 'running'
     ? t('search.runningOnly', '运行中')
     : searchMode === 'archived'
@@ -110,7 +148,7 @@ export default function SidebarHeader({
       : conversationProjectFilter
         ? (projects.find((project) => project.projectId === conversationProjectFilter)?.displayName
           ?? t('search.filterAll', '全部会话'))
-        : t('search.filterAll', '全部会话');
+        : `${agentLabel} · ${t('search.filterAll', '全部会话')}`;
 
   const showSearchTools = (projectsCount > 0 || runningSessionsCount > 0 || archivedSessionsCount > 0 || isArchivedSessionsLoading) && !isLoading;
   const searchPlaceholder = searchMode === 'conversations'
@@ -162,6 +200,43 @@ export default function SidebarHeader({
                   {/* Invisible backdrop closes the menu on any outside click. */}
                   <div className="fixed inset-0 z-30" onClick={() => setFilterOpen(false)} />
                   <div className="absolute z-40 mt-1 max-h-72 w-full overflow-y-auto rounded-lg border border-border bg-card py-1 shadow-lg">
+                    <div className="px-3 py-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground/70">
+                      {t('search.filterByAgent', '智能体')}
+                    </div>
+                    <FilterItem
+                      label={t('search.filterAllAgents', '全部智能体')}
+                      active={!filterAgent}
+                      onClick={() => {
+                        onFilterAgentChange(null);
+                        setFilterOpen(false);
+                      }}
+                    />
+                    {(Object.keys(PROVIDER_LABELS) as LLMProvider[]).map((providerId) => (
+                      <FilterItem
+                        key={providerId}
+                        label={
+                          <span className="flex items-center gap-1.5">
+                            <LLMProviderLogo provider={providerId} className="h-3.5 w-3.5" />
+                            {PROVIDER_LABELS[providerId]}
+                          </span>
+                        }
+                        active={filterAgent === providerId}
+                        onClick={() => {
+                          onFilterAgentChange(providerId);
+                          // 切智能体时,若当前项目不属于它则清掉项目筛选
+                          if (conversationProjectFilter) {
+                            const agentProjects = providerProjectIds.get(providerId);
+                            if (claimedProjectIds.has(conversationProjectFilter)
+                              && !agentProjects?.has(conversationProjectFilter)) {
+                              onConversationProjectFilterChange(null);
+                            }
+                          }
+                          onSearchModeChange('conversations');
+                          setFilterOpen(false);
+                        }}
+                      />
+                    ))}
+                    <div className="my-1 border-t border-border/60" />
                     <FilterItem
                       label={t('search.filterAll', '全部会话')}
                       active={searchMode === 'conversations' && !conversationProjectFilter}
@@ -171,38 +246,12 @@ export default function SidebarHeader({
                         setFilterOpen(false);
                       }}
                     />
-                    <FilterItem
-                      label={
-                        <span className="flex items-center gap-1.5">
-                          {t('search.runningOnly', '运行中')}
-                          {runningSessionsCount > 0 && (
-                            <span className="rounded-full bg-emerald-500 px-1.5 text-[10px] font-semibold leading-4 text-white">
-                              {runningBadgeText}
-                            </span>
-                          )}
-                        </span>
-                      }
-                      active={searchMode === 'running'}
-                      onClick={() => {
-                        onSearchModeChange('running');
-                        setFilterOpen(false);
-                      }}
-                    />
-                    <FilterItem
-                      label={t('search.archivedOnly', '归档')}
-                      active={searchMode === 'archived'}
-                      onClick={() => {
-                        onSearchModeChange('archived');
-                        setFilterOpen(false);
-                      }}
-                    />
-                    {projects.length > 0 && (
+                    {visibleProjects.length > 0 && (
                       <>
-                        <div className="my-1 border-t border-border/60" />
                         <div className="px-3 py-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground/70">
-                          {t('search.filterByProject', '按项目')}
+                          {t('search.filterByProject', '该智能体的项目')}
                         </div>
-                        {projects.map((project) => {
+                        {visibleProjects.map((project) => {
                           const isFiltering = searchMode === 'conversations' && conversationProjectFilter === project.projectId;
                           const isRenamingThis = renamingProjectId === project.projectId;
                           if (isRenamingThis) {

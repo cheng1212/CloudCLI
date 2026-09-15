@@ -5,6 +5,7 @@ import { Bot, Cpu, Folder, FolderPlus, Loader2, MessageSquarePlus, X } from 'luc
 import type { TFunction } from 'i18next';
 
 import type { Project } from '../../../../types/app';
+import type { LLMProvider } from '../../../../types/app';
 import { cn } from '../../../../lib/utils';
 import { api } from '../../../../utils/api';
 
@@ -36,9 +37,11 @@ type ModelOption = {
 // (same root the 5190 zcode app uses, so both UIs see the same projects).
 const DEFAULT_PROJECT_ROOT = 'C:\\Users\\chengge\\zcode-projects';
 
-const PROVIDERS: Array<{ id: 'claude' | 'codex'; label: string }> = [
+const PROVIDERS: Array<{ id: LLMProvider; label: string }> = [
   { id: 'claude', label: 'Claude Code' },
   { id: 'codex', label: 'Codex' },
+  { id: 'cursor', label: 'Cursor' },
+  { id: 'opencode', label: 'OpenCode' },
 ];
 
 function sanitizeProjectName(name: string): string {
@@ -54,11 +57,13 @@ export default function NewConversationDialog({
 }: NewConversationDialogProps) {
   const navigate = useNavigate();
   const [title, setTitle] = useState('');
-  const [provider, setProvider] = useState<'claude' | 'codex'>('claude');
+  const [provider, setProvider] = useState<LLMProvider>('claude');
   const [newProjectName, setNewProjectName] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [modelOptions, setModelOptions] = useState<ModelOption[]>([]);
+  const [providerProjectIds, setProviderProjectIds] = useState<Map<string, Set<string>>>(new Map());
+  const [claimedProjectIds, setClaimedProjectIds] = useState<Set<string>>(new Set());
   const [modelsLoading, setModelsLoading] = useState(false);
   const [selectedModel, setSelectedModel] = useState<string>('');
 
@@ -72,10 +77,11 @@ export default function NewConversationDialog({
       try {
         const response = await api.providerModels(provider);
         const payload = await response.json().catch(() => null);
-        const options = Array.isArray(payload?.data?.OPTIONS) ? payload.data.OPTIONS : [];
+        const modelsBlock = payload?.data?.models ?? payload?.data;
+        const options = Array.isArray(modelsBlock?.OPTIONS) ? modelsBlock.OPTIONS : [];
         if (cancelled) return;
         setModelOptions(options);
-        setSelectedModel(typeof payload?.data?.DEFAULT === 'string' ? payload.data.DEFAULT : (options[0]?.value ?? ''));
+        setSelectedModel(typeof modelsBlock?.DEFAULT === 'string' ? modelsBlock.DEFAULT : (options[0]?.value ?? ''));
       } catch {
         if (!cancelled) setModelOptions([]);
       }
@@ -86,6 +92,37 @@ export default function NewConversationDialog({
       cancelled = true;
     };
   }, [provider]);
+
+  // Fetch recent conversations to map which projects belong to which agent.
+  useEffect(() => {
+    let cancelled = false;
+    const loadProjectOwners = async () => {
+      try {
+        const response = await api.recentConversations({ limit: 200 });
+        const payload = await response.json().catch(() => null);
+        const conversations = Array.isArray(payload?.data?.conversations) ? payload.data.conversations : [];
+        if (cancelled) return;
+        const providerMap = new Map<string, Set<string>>();
+        const claimed = new Set<string>();
+        for (const conversation of conversations) {
+          if (!conversation.projectId) continue;
+          claimed.add(conversation.projectId);
+          if (!providerMap.has(conversation.provider)) {
+            providerMap.set(conversation.provider, new Set());
+          }
+          providerMap.get(conversation.provider)!.add(conversation.projectId);
+        }
+        setProviderProjectIds(providerMap);
+        setClaimedProjectIds(claimed);
+      } catch {
+        // Filtering is best-effort; on failure show all projects.
+      }
+    };
+    void loadProjectOwners();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Starts the conversation in `project` with the chosen agent + model: the
   // session is allocated immediately, the custom title applied and the model
@@ -334,7 +371,12 @@ export default function NewConversationDialog({
               <p className="px-3 pb-1 pt-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground/70">
                 {t('newConversation.existingProjects', '或选择已有项目')}
               </p>
-              {projects.map((project) => {
+              {projects
+                .filter((project) => {
+                  if (!claimedProjectIds.has(project.projectId)) return true;
+                  return providerProjectIds.get(provider)?.has(project.projectId) ?? false;
+                })
+                .map((project) => {
                 const isSelected = project.projectId === selectedProjectId;
                 return (
                   <button
@@ -368,7 +410,7 @@ export default function NewConversationDialog({
                     )}
                   </button>
                 );
-              })}
+                })}
             </>
           )}
         </div>

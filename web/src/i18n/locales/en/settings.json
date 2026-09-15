@@ -103,6 +103,8 @@
   },
   "mainTabs": {
     "label": "Settings",
+    "usage": "Usage",
+    "crons": "Crons",
     "agents": "Agents",
     "appearance": "Appearance",
     "git": "Git",

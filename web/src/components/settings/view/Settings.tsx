@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 
 import ProviderLoginModal from '../../provider-auth/view/ProviderLoginModal';
 import { Button } from '../../../shared/view/ui';
-import SettingsSidebar from '../view/SettingsSidebar';
+import SettingsSidebar, { SettingsMobileNav } from '../view/SettingsSidebar';
 import AgentsSettingsTab from '../view/tabs/agents-settings/AgentsSettingsTab';
 import AppearanceSettingsTab from '../view/tabs/AppearanceSettingsTab';
 import CredentialsSettingsTab from '../view/tabs/api-settings/CredentialsSettingsTab';
@@ -224,6 +224,11 @@ function Settings({ isOpen, onClose, projects = [], initialTab = 'agents' }: Set
               {activeTab === 'about' && <AboutTab />}
             </div>
           </main>
+
+          {/* Mobile: vertical tab list stacked below the content */}
+          <div className="flex-shrink-0 border-t border-border px-3 py-2 md:hidden">
+            <SettingsMobileNav activeTab={activeTab} onChange={setActiveTab} />
+          </div>
         </div>
       </div>
 
