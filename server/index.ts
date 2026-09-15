@@ -41,6 +41,7 @@ import {
 } from './modules/plugins/index.js';
 import providerRoutes from './modules/providers/provider.routes.js';
 import cronRoutes, { startCronScheduler } from './modules/cron/cron.routes.js';
+import usageRoutes from './modules/usage/usage.routes.js';
 import { voiceRoutes } from './modules/voice/index.js';
 import browserUseRoutes from './modules/browser-use/browser-use.routes.js';
 import { assetsRoutes } from './modules/assets/index.js';
@@ -193,6 +194,9 @@ app.use('/api/providers', authenticateToken, providerRoutes);
 
 // Session cron scheduler routes (protected)
 app.use('/api/crons', authenticateToken, cronRoutes);
+
+// Usage statistics (protected)
+app.use('/api/usage', authenticateToken, usageRoutes);
 
 // Agent API Routes (uses API key authentication)
 app.use('/api/agent', agentRoutes);

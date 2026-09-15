@@ -49,6 +49,18 @@ const PRICING_TABLE: PricingEntry[] = [
     note: 'DeepSeek V4 Pro 峰值价',
   },
   {
+    // BigModel list price CNY 0.8/M input, 2/M output (≈ USD @ 7.2).
+    match: ['glm-4.5-air'],
+    pricing: { inputPerM: 0.111, outputPerM: 0.278 },
+    note: 'GLM-4.5-Air 刊例价',
+  },
+  {
+    // BigModel list price CNY 2/M input, 8/M output (≈ USD @ 7.2).
+    match: ['glm-4.5'],
+    pricing: { inputPerM: 0.278, outputPerM: 1.111 },
+    note: 'GLM-4.5 刊例价',
+  },
+  {
     match: ['claude-sonnet-4', 'claude-sonnet-5'],
     pricing: { inputPerM: 3, outputPerM: 15, cacheReadPerM: 0.3, cacheWritePerM: 3.75 },
   },

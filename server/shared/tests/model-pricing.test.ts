@@ -18,7 +18,9 @@ test('resolveModelPricing marks zero-rate and unknown models', () => {
   const go = resolveModelPricing('go-glm-5.3');
   assert.equal(go.pricing?.outputPerM, 0);
 
-  assert.equal(resolveModelPricing('glm-4.5-air').pricing, null);
+  assert.equal(resolveModelPricing('glm-4.5-air').pricing?.inputPerM, 0.111);
+  assert.equal(resolveModelPricing('glm-5.2').pricing, null);
+  assert.equal(resolveModelPricing('mystery-model').pricing, null);
   assert.equal(resolveModelPricing('').pricing, null);
   assert.equal(resolveModelPricing(undefined).pricing, null);
 });

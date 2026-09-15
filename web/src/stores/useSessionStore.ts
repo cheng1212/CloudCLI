@@ -920,6 +920,47 @@ export function useSessionStore() {
   }, [notify]);
 
   /**
+   * Update or create the streaming thinking block (accumulated reasoning so
+   * far). Mirrors updateStreaming with a distinct well-known ID and the
+   * `thinking` kind so the renderer treats it as reasoning output.
+   */
+  const updateThinkingStreaming = useCallback((sessionId: string, accumulatedText: string, msgProvider: LLMProvider) => {
+    const slot = getSlot(sessionId);
+    const streamId = `__thinking_streaming_${sessionId}`;
+    const msg: NormalizedMessage = {
+      id: streamId,
+      sessionId,
+      timestamp: new Date().toISOString(),
+      provider: msgProvider,
+      kind: 'thinking',
+      content: accumulatedText,
+    };
+    const idx = slot.realtimeMessages.findIndex(m => m.id === streamId);
+    if (idx >= 0) {
+      slot.realtimeMessages = [...slot.realtimeMessages];
+      slot.realtimeMessages[idx] = msg;
+    } else {
+      slot.realtimeMessages = [...slot.realtimeMessages, msg];
+    }
+    recomputeMergedIfNeeded(slot);
+    notify(sessionId);
+  }, [getSlot, notify]);
+
+  /** Removes the streaming thinking block (the real `thinking` message replaces it). */
+  const clearThinkingStreaming = useCallback((sessionId: string) => {
+    const slot = storeRef.current.get(sessionId);
+    if (!slot) return;
+    const streamId = `__thinking_streaming_${sessionId}`;
+    const idx = slot.realtimeMessages.findIndex(m => m.id === streamId);
+    if (idx >= 0) {
+      slot.realtimeMessages = [...slot.realtimeMessages];
+      slot.realtimeMessages.splice(idx, 1);
+      recomputeMergedIfNeeded(slot);
+      notify(sessionId);
+    }
+  }, [notify]);
+
+  /**
    * Clear realtime messages for a session (e.g., after stream completes and server fetch catches up).
    */
   const clearRealtime = useCallback((sessionId: string) => {
@@ -959,6 +1000,8 @@ export function useSessionStore() {
     isStale,
     updateStreaming,
     finalizeStreaming,
+    updateThinkingStreaming,
+    clearThinkingStreaming,
     clearRealtime,
     getMessages,
     getSessionSlot,
@@ -966,6 +1009,7 @@ export function useSessionStore() {
     getSlot, has, hydrateFromCache, fetchFromServer, fetchMore,
     appendRealtime, appendRealtimeBatch, refreshLatestFromServer,
     setActiveSession, setStatus, isStale, updateStreaming, finalizeStreaming,
+    updateThinkingStreaming, clearThinkingStreaming,
     clearRealtime, getMessages, getSessionSlot,
   ]);
 }

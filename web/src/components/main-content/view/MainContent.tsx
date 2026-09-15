@@ -20,6 +20,7 @@ import { TaskMasterPanel } from '../../task-master';
 
 import MainContentHeader from './subcomponents/MainContentHeader';
 import MainContentStateView from './subcomponents/MainContentStateView';
+import MainContentSessionsView from './subcomponents/MainContentSessionsView';
 import ErrorBoundary from './ErrorBoundary';
 
 type TaskMasterContextValue = {
@@ -138,8 +139,9 @@ function MainContent({
     return <MainContentStateView mode="loading" isMobile={isMobile} onMenuClick={onMenuClick} />;
   }
 
+  // Land directly on the conversations list instead of a project picker.
   if (!selectedProject) {
-    return <MainContentStateView mode="empty" isMobile={isMobile} onMenuClick={onMenuClick} />;
+    return <MainContentSessionsView isMobile={isMobile} onMenuClick={onMenuClick} />;
   }
 
   return (

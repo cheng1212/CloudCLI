@@ -90,6 +90,11 @@ export function useChatRealtimeHandlers({
   // notification sound before React finishes a rerender.
   const pendingPermissionRequestsRef = useRef(pendingPermissionRequests);
 
+  // Thinking-stream accumulator: thinking_delta frames append here and flush
+  // into the store on a short timer, mirroring the text stream_delta path.
+  const accumulatedThinkingRef = useRef('');
+  const thinkingTimerRef = useRef<number | null>(null);
+
   useEffect(() => {
     pendingPermissionRequestsRef.current = pendingPermissionRequests;
   }, [pendingPermissionRequests]);
@@ -198,6 +203,22 @@ export function useChatRealtimeHandlers({
         return;
       }
 
+      // --- Streaming thinking: same buffering pattern as text deltas ---
+      if (msg.kind === 'thinking_delta') {
+        const text = (msg.content as string) || '';
+        if (!text) return;
+        accumulatedThinkingRef.current += text;
+        if (!thinkingTimerRef.current) {
+          thinkingTimerRef.current = window.setTimeout(() => {
+            thinkingTimerRef.current = null;
+            if (sid) {
+              sessionStore.updateThinkingStreaming(sid, accumulatedThinkingRef.current, provider);
+            }
+          }, 100);
+        }
+        return;
+      }
+
       if (msg.kind === 'stream_end') {
         if (streamTimerRef.current) {
           clearTimeout(streamTimerRef.current);
@@ -220,6 +241,16 @@ export function useChatRealtimeHandlers({
         && msg.kind !== 'permission_request'
         && msg.kind !== 'permission_cancelled';
 
+      if (sid && msg.kind === 'thinking') {
+        // The persisted thinking block supersedes the streamed preview.
+        if (thinkingTimerRef.current) {
+          clearTimeout(thinkingTimerRef.current);
+          thinkingTimerRef.current = null;
+        }
+        accumulatedThinkingRef.current = '';
+        sessionStore.clearThinkingStreaming(sid);
+      }
+
       if (sid && shouldPersist) {
         sessionStore.appendRealtime(sid, msg as unknown as NormalizedMessage);
       }
@@ -237,6 +268,14 @@ export function useChatRealtimeHandlers({
             sessionStore.finalizeStreaming(sid);
           }
           accumulatedStreamRef.current = '';
+          if (thinkingTimerRef.current) {
+            clearTimeout(thinkingTimerRef.current);
+            thinkingTimerRef.current = null;
+          }
+          accumulatedThinkingRef.current = '';
+          if (sid) {
+            sessionStore.clearThinkingStreaming(sid);
+          }
 
           // `complete` is the unified terminal event — every provider run ends
           // with exactly one, regardless of success, failure, or abort. The

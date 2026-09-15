@@ -884,6 +884,13 @@ async function queryClaudeSDK(command, options = {}, ws, context) {
             sessionId: capturedSessionId || sessionId || null,
             provider: 'claude',
           }));
+        } else if (delta?.type === 'thinking_delta' && typeof delta.thinking === 'string' && delta.thinking) {
+          ws.send(createNormalizedMessage({
+            kind: 'thinking_delta',
+            content: delta.thinking,
+            sessionId: capturedSessionId || sessionId || null,
+            provider: 'claude',
+          }));
         }
         continue;
       }

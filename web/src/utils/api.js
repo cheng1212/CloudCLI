@@ -209,6 +209,20 @@ export const api = {
     authenticatedFetch(`/api/providers/sessions/${encodeURIComponent(sessionId)}/fork`, {
       method: 'POST',
     }),
+  // Global usage statistics aggregated from local transcripts.
+  usageSummary: (days = 30) =>
+    authenticatedFetch(`/api/usage/summary?days=${encodeURIComponent(String(days))}`),
+  // Session cron scheduler management.
+  listCrons: () => authenticatedFetch('/api/crons'),
+  createCron: (payload) =>
+    authenticatedFetch('/api/crons', { method: 'POST', body: JSON.stringify(payload) }),
+  setCronActive: (cronId, active) =>
+    authenticatedFetch(`/api/crons/${cronId}`, { method: 'PATCH', body: JSON.stringify({ active }) }),
+  deleteCron: (cronId) =>
+    authenticatedFetch(`/api/crons/${cronId}`, { method: 'DELETE' }),
+  runCronNow: (cronId) =>
+    authenticatedFetch(`/api/crons/${cronId}/run`, { method: 'POST' }),
+  getCronRuns: (cronId) => authenticatedFetch(`/api/crons/${cronId}/runs`),
   // Resolves one session (by app id or provider-native id) to its metadata and
   // owning project — used when a /session/<id> URL isn't in loaded payloads.
   sessionDetails: (sessionId) =>
