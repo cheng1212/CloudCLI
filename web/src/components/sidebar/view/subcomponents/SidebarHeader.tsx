@@ -1,11 +1,12 @@
 import { useState, type ReactNode } from 'react';
-import { Check, ChevronDown, Filter, MessageSquarePlus, RefreshCw, Search, X, PanelLeftClose } from 'lucide-react';
+import { Check, ChevronDown, Filter, MessageSquarePlus, Pencil, RefreshCw, Search, Trash2, X, PanelLeftClose } from 'lucide-react';
 import type { TFunction } from 'i18next';
 
 import { Button, Input } from '../../../../shared/view/ui';
 import { CLOUDCLI_WORDMARK_FONT_FAMILY } from '../../../../shared/constants';
 import { IS_PLATFORM } from '../../../../shared/utils';
 import { cn } from '../../../../lib/utils';
+import { api } from '../../../../utils/api';
 import type { Project } from '../../../../types/app';
 import type { SidebarSearchMode } from '../../types/types';
 
@@ -64,6 +65,39 @@ export default function SidebarHeader({
 }: SidebarHeaderProps) {
   const [newConversationOpen, setNewConversationOpen] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
+  const [renamingProjectId, setRenamingProjectId] = useState<string | null>(null);
+  const [renamingProjectName, setRenamingProjectName] = useState('');
+
+  const saveProjectRename = async (projectId: string) => {
+    const nextName = renamingProjectName.trim();
+    setRenamingProjectId(null);
+    if (!nextName) return;
+    try {
+      const response = await api.renameProject(projectId, nextName);
+      if (!response.ok) {
+        console.error('[Sidebar] Project rename failed:', response.status);
+      }
+    } catch (error) {
+      console.error('[Sidebar] Project rename error:', error);
+    }
+    onRefresh();
+  };
+
+  const removeProject = async (projectId: string, projectDisplayName: string) => {
+    // eslint-disable-next-line no-alert
+    if (!window.confirm(t('search.deleteProjectConfirm', `确定删除项目「${projectDisplayName}」吗？（会话保留，仅移除项目）`))) {
+      return;
+    }
+    try {
+      await api.deleteProject(projectId, false);
+    } catch (error) {
+      console.error('[Sidebar] Project delete error:', error);
+    }
+    if (conversationProjectFilter === projectId) {
+      onConversationProjectFilterChange(null);
+    }
+    onRefresh();
+  };
 
   const openNewConversationDialog = () => {
     setNewConversationOpen(true);
@@ -168,18 +202,82 @@ export default function SidebarHeader({
                         <div className="px-3 py-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground/70">
                           {t('search.filterByProject', '按项目')}
                         </div>
-                        {projects.map((project) => (
-                          <FilterItem
-                            key={project.projectId}
-                            label={project.displayName}
-                            active={searchMode === 'conversations' && conversationProjectFilter === project.projectId}
-                            onClick={() => {
-                              onConversationProjectFilterChange(project.projectId);
-                              onSearchModeChange('conversations');
-                              setFilterOpen(false);
-                            }}
-                          />
-                        ))}
+                        {projects.map((project) => {
+                          const isFiltering = searchMode === 'conversations' && conversationProjectFilter === project.projectId;
+                          const isRenamingThis = renamingProjectId === project.projectId;
+                          if (isRenamingThis) {
+                            return (
+                              <div key={project.projectId} className="flex items-center gap-1 px-2 py-1">
+                                <input
+                                  autoFocus
+                                  value={renamingProjectName}
+                                  onChange={(event) => setRenamingProjectName(event.target.value)}
+                                  onKeyDown={(event) => {
+                                    if (event.key === 'Enter') void saveProjectRename(project.projectId);
+                                    if (event.key === 'Escape') setRenamingProjectId(null);
+                                  }}
+                                  className="h-7 min-w-0 flex-1 rounded-md border border-border bg-background px-2 text-xs focus:border-primary focus:outline-none"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => void saveProjectRename(project.projectId)}
+                                  className="flex h-7 w-7 items-center justify-center rounded-md text-primary hover:bg-primary/10"
+                                  aria-label={t('search.renameSave', '保存')}
+                                >
+                                  <Check className="h-3 w-3" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setRenamingProjectId(null)}
+                                  className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent"
+                                  aria-label={t('search.renameCancel', '取消')}
+                                >
+                                  <X className="h-3 w-3" />
+                                </button>
+                              </div>
+                            );
+                          }
+                          return (
+                            <div
+                              key={project.projectId}
+                              className={cn(
+                                'group flex w-full items-center gap-1 rounded-md pr-1',
+                                isFiltering ? 'bg-primary/10' : 'hover:bg-accent/60',
+                              )}
+                            >
+                              <FilterItem
+                                label={project.displayName}
+                                active={isFiltering}
+                                onClick={() => {
+                                  onConversationProjectFilterChange(project.projectId);
+                                  onSearchModeChange('conversations');
+                                  setFilterOpen(false);
+                                }}
+                              />
+                              <span className="flex flex-shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setRenamingProjectId(project.projectId);
+                                    setRenamingProjectName(project.displayName);
+                                  }}
+                                  className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+                                  aria-label={t('search.renameProject', '重命名')}
+                                >
+                                  <Pencil className="h-3 w-3" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => void removeProject(project.projectId, project.displayName)}
+                                  className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-destructive"
+                                  aria-label={t('search.deleteProject', '删除')}
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </button>
+                              </span>
+                            </div>
+                          );
+                        })}
                       </>
                     )}
                   </div>
