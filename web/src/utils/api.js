@@ -209,6 +209,9 @@ export const api = {
     authenticatedFetch(`/api/providers/sessions/${encodeURIComponent(sessionId)}/fork`, {
       method: 'POST',
     }),
+  // Model catalog of one provider (OPTIONS list + DEFAULT).
+  providerModels: (provider) =>
+    authenticatedFetch(`/api/providers/${encodeURIComponent(provider)}/models`),
   // Global usage statistics aggregated from local transcripts.
   usageSummary: (days = 30) =>
     authenticatedFetch(`/api/usage/summary?days=${encodeURIComponent(String(days))}`),
@@ -267,6 +270,19 @@ export const api = {
     if (token) params.set('token', token);
     return `/api/providers/search/sessions?${params.toString()}`;
   },
+  // Allocates a stable app session id (the session gateway used before the
+  // first websocket send).
+  createSession: (payload) =>
+    authenticatedFetch('/api/providers/sessions', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  // Pins the per-session model (and reasoning effort) server-side.
+  setSessionActiveModel: (provider, sessionId, model) =>
+    authenticatedFetch(`/api/providers/${encodeURIComponent(provider)}/sessions/${encodeURIComponent(sessionId)}/active-model`, {
+      method: 'POST',
+      body: JSON.stringify({ model }),
+    }),
   createProject: (projectData) =>
     authenticatedFetch('/api/projects/create-project', {
       method: 'POST',

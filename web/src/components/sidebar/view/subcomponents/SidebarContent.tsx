@@ -1,4 +1,4 @@
-import { type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Activity, Archive, Folder, MessageSquare, RotateCcw, Search, Trash2 } from 'lucide-react';
 import type { TFunction } from 'i18next';
 
@@ -214,6 +214,9 @@ export default function SidebarContent({
   projectListProps,
   t,
 }: SidebarContentProps) {
+  // Conversation list filter driven by the single filter dropdown in the
+  // header: null = all conversations, otherwise a project id to scope to.
+  const [conversationProjectFilter, setConversationProjectFilter] = useState<string | null>(null);
   const showConversationSearch = searchMode === 'conversations' && searchFilter.trim().length >= 2;
   const hasSearchResults = Boolean(
     conversationResults
@@ -243,6 +246,8 @@ export default function SidebarContent({
         onClearSearchFilter={onClearSearchFilter}
         searchMode={searchMode}
         onSearchModeChange={onSearchModeChange}
+        conversationProjectFilter={conversationProjectFilter}
+        onConversationProjectFilterChange={setConversationProjectFilter}
         onRefresh={onRefresh}
         isRefreshing={isRefreshing}
         projects={projects}
@@ -426,6 +431,7 @@ export default function SidebarContent({
             isLoading={isRecentConversationsLoading}
             isLoadingMore={isLoadingMoreRecentConversations}
             hasError={recentConversationsError}
+            projectFilterId={conversationProjectFilter}
             selectedSession={projectListProps.selectedSession}
             currentTime={projectListProps.currentTime}
             onConversationSelect={onConversationResultClick}

@@ -48,7 +48,7 @@ const RANGES: Array<{ label: string; days: number }> = [
   { label: '全部', days: 0 },
 ];
 
-export default function UsagePage() {
+export default function UsagePage({ embedded = false }: { embedded?: boolean } = {}) {
   const navigate = useNavigate();
   const { t } = useTranslation();
   const [days, setDays] = useState(30);
@@ -81,9 +81,11 @@ export default function UsagePage() {
     <div className="flex h-full flex-col bg-background">
       <div className="flex flex-shrink-0 items-center justify-between border-b border-border/50 px-4 py-3">
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate(-1)} aria-label="back">
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
+          {!embedded && (
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate(-1)} aria-label="back">
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+          )}
           <h1 className="text-base font-semibold text-foreground">{t('usage.title', '用量统计')}</h1>
         </div>
         <div className="flex items-center gap-1">

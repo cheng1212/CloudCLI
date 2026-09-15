@@ -60,35 +60,15 @@ export default function MainContentSessionsView({ isMobile, onMenuClick }: { isM
 
       <div className="flex flex-shrink-0 items-center justify-between border-b border-border/50 px-4 py-3">
         <h1 className="text-base font-semibold text-foreground">{t('mainContent.sessionsTitle', '会话')}</h1>
-        <div className="flex items-center gap-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            onClick={() => navigate('/crons')}
-            aria-label={t('mainContent.cronsEntry', '定时任务')}
-          >
-            <Clock className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            onClick={() => navigate('/usage')}
-            aria-label={t('mainContent.usageEntry', '用量统计')}
-          >
-            <BarChart3 className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            onClick={() => void load()}
-            aria-label={t('mainContent.refresh', '刷新')}
-          >
-            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-          </Button>
-        </div>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8"
+          onClick={() => void load()}
+          aria-label={t('mainContent.refresh', '刷新')}
+        >
+          <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+        </Button>
       </div>
 
       <div className="flex-1 overflow-y-auto">

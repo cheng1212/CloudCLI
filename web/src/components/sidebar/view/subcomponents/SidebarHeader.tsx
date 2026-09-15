@@ -1,8 +1,8 @@
-import { useState } from 'react';
-import { Activity, Archive, MessageSquare, MessageSquarePlus, RefreshCw, Search, X, PanelLeftClose } from 'lucide-react';
+import { useState, type ReactNode } from 'react';
+import { Check, ChevronDown, Filter, MessageSquarePlus, RefreshCw, Search, X, PanelLeftClose } from 'lucide-react';
 import type { TFunction } from 'i18next';
 
-import { Button, Input, Tooltip } from '../../../../shared/view/ui';
+import { Button, Input } from '../../../../shared/view/ui';
 import { CLOUDCLI_WORDMARK_FONT_FAMILY } from '../../../../shared/constants';
 import { IS_PLATFORM } from '../../../../shared/utils';
 import { cn } from '../../../../lib/utils';
@@ -28,6 +28,8 @@ type SidebarHeaderProps = {
   onClearSearchFilter: () => void;
   searchMode: SidebarSearchMode;
   onSearchModeChange: (mode: SidebarSearchMode) => void;
+  conversationProjectFilter: string | null;
+  onConversationProjectFilterChange: (projectId: string | null) => void;
   onRefresh: () => void;
   isRefreshing: boolean;
   projects: Project[];
@@ -50,6 +52,8 @@ export default function SidebarHeader({
   onClearSearchFilter,
   searchMode,
   onSearchModeChange,
+  conversationProjectFilter,
+  onConversationProjectFilterChange,
   onRefresh,
   isRefreshing,
   projects,
@@ -59,10 +63,20 @@ export default function SidebarHeader({
   t,
 }: SidebarHeaderProps) {
   const [newConversationOpen, setNewConversationOpen] = useState(false);
+  const [filterOpen, setFilterOpen] = useState(false);
 
   const openNewConversationDialog = () => {
     setNewConversationOpen(true);
   };
+
+  const filterLabel = searchMode === 'running'
+    ? t('search.runningOnly', '运行中')
+    : searchMode === 'archived'
+      ? t('search.archivedOnly', '归档')
+      : conversationProjectFilter
+        ? (projects.find((project) => project.projectId === conversationProjectFilter)?.displayName
+          ?? t('search.filterAll', '全部会话'))
+        : t('search.filterAll', '全部会话');
 
   const showSearchTools = (projectsCount > 0 || runningSessionsCount > 0 || archivedSessionsCount > 0 || isArchivedSessionsLoading) && !isLoading;
   const searchPlaceholder = searchMode === 'conversations'
@@ -88,6 +102,90 @@ export default function SidebarHeader({
         {t('app.title')}
       </h1>
     </div>
+  );
+
+  const filterDropdown = (
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setFilterOpen((open) => !open)}
+                className={cn(
+                  'flex h-8 w-full items-center justify-between rounded-lg border border-border bg-muted/40 px-2.5 text-xs transition-colors hover:bg-muted/70',
+                  filterOpen && 'border-primary/40',
+                )}
+                aria-expanded={filterOpen}
+              >
+                <span className="flex min-w-0 items-center gap-1.5">
+                  <Filter className="h-3 w-3 flex-shrink-0 text-muted-foreground" />
+                  <span className="truncate font-normal text-foreground">
+                    {filterLabel}
+                  </span>
+                </span>
+                <ChevronDown className={cn('h-3 w-3 flex-shrink-0 text-muted-foreground transition-transform', filterOpen && 'rotate-180')} />
+              </button>
+              {filterOpen && (
+                <>
+                  {/* Invisible backdrop closes the menu on any outside click. */}
+                  <div className="fixed inset-0 z-30" onClick={() => setFilterOpen(false)} />
+                  <div className="absolute z-40 mt-1 max-h-72 w-full overflow-y-auto rounded-lg border border-border bg-card py-1 shadow-lg">
+                    <FilterItem
+                      label={t('search.filterAll', '全部会话')}
+                      active={searchMode === 'conversations' && !conversationProjectFilter}
+                      onClick={() => {
+                        onConversationProjectFilterChange(null);
+                        onSearchModeChange('conversations');
+                        setFilterOpen(false);
+                      }}
+                    />
+                    <FilterItem
+                      label={
+                        <span className="flex items-center gap-1.5">
+                          {t('search.runningOnly', '运行中')}
+                          {runningSessionsCount > 0 && (
+                            <span className="rounded-full bg-emerald-500 px-1.5 text-[10px] font-semibold leading-4 text-white">
+                              {runningBadgeText}
+                            </span>
+                          )}
+                        </span>
+                      }
+                      active={searchMode === 'running'}
+                      onClick={() => {
+                        onSearchModeChange('running');
+                        setFilterOpen(false);
+                      }}
+                    />
+                    <FilterItem
+                      label={t('search.archivedOnly', '归档')}
+                      active={searchMode === 'archived'}
+                      onClick={() => {
+                        onSearchModeChange('archived');
+                        setFilterOpen(false);
+                      }}
+                    />
+                    {projects.length > 0 && (
+                      <>
+                        <div className="my-1 border-t border-border/60" />
+                        <div className="px-3 py-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground/70">
+                          {t('search.filterByProject', '按项目')}
+                        </div>
+                        {projects.map((project) => (
+                          <FilterItem
+                            key={project.projectId}
+                            label={project.displayName}
+                            active={searchMode === 'conversations' && conversationProjectFilter === project.projectId}
+                            onClick={() => {
+                              onConversationProjectFilterChange(project.projectId);
+                              onSearchModeChange('conversations');
+                              setFilterOpen(false);
+                            }}
+                          />
+                        ))}
+                      </>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
   );
 
   return (
@@ -151,61 +249,7 @@ export default function SidebarHeader({
         {/* Search bar */}
         {showSearchTools && (
           <div className="mt-2.5 space-y-2">
-            {/* Search mode toggle */}
-            <div className="flex rounded-lg bg-muted/50 p-0.5">
-              <button
-                onClick={() => onSearchModeChange('conversations')}
-                aria-pressed={searchMode === 'conversations'}
-                className={cn(
-                  "flex-1 flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-normal transition-all",
-                  searchMode === 'conversations'
-                    ? "bg-background shadow-sm text-foreground"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                <MessageSquare className="h-3 w-3" />
-                {t('search.modeConversations')}
-              </button>
-              <Tooltip content={t('search.runningTooltip', 'Running sessions')} position="top">
-                <button
-                  onClick={() => onSearchModeChange('running')}
-                  aria-pressed={searchMode === 'running'}
-                  aria-label={t('search.runningTooltip', 'Running sessions')}
-                  title={t('search.runningTooltip', 'Running sessions')}
-                  className={cn(
-                    "flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-normal transition-all",
-                    searchMode === 'running'
-                      ? "bg-background shadow-sm text-foreground ring-1 ring-emerald-500/15"
-                      : "text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  <span className="relative flex h-3 w-3 items-center justify-center">
-                    <Activity className={cn("h-3 w-3", runningSessionsCount > 0 && "text-emerald-500")} />
-                    {runningSessionsCount > 0 && (
-                      <span className="absolute -right-2.5 -top-2 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-emerald-500 px-0.5 text-[8px] font-semibold leading-none text-white shadow-sm ring-1 ring-background">
-                        {runningBadgeText}
-                      </span>
-                    )}
-                  </span>
-                </button>
-              </Tooltip>
-              <Tooltip content={t('search.archiveOnlyTooltip', 'Archive only')} position="top">
-                <button
-                  onClick={() => onSearchModeChange('archived')}
-                  aria-pressed={searchMode === 'archived'}
-                  aria-label={t('search.archiveOnlyTooltip', 'Archive only')}
-                  title={t('search.archiveOnlyTooltip', 'Archive only')}
-                  className={cn(
-                    "flex items-center justify-center rounded-md px-2.5 py-1.5 text-xs font-normal transition-all",
-                    searchMode === 'archived'
-                      ? "bg-background shadow-sm text-foreground"
-                      : "text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  <Archive className="h-3 w-3" />
-                </button>
-              </Tooltip>
-            </div>
+            {filterDropdown}
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/50" />
               <Input
@@ -280,61 +324,7 @@ export default function SidebarHeader({
         {/* Mobile search */}
         {showSearchTools && (
           <div className="mt-2.5 space-y-2">
-            <div className="flex rounded-lg bg-muted/50 p-0.5">
-              <button
-                onClick={() => onSearchModeChange('conversations')}
-                aria-pressed={searchMode === 'conversations'}
-                className={cn(
-                  "flex-1 flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-normal transition-all",
-                  searchMode === 'conversations'
-                    ? "bg-background shadow-sm text-foreground"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                <MessageSquare className="h-3 w-3" />
-                {t('search.modeConversations')}
-              </button>
-              <Tooltip content={t('search.runningTooltip', 'Running sessions')} position="top">
-                <button
-                  onClick={() => onSearchModeChange('running')}
-                  aria-pressed={searchMode === 'running'}
-                  aria-label={t('search.runningTooltip', 'Running sessions')}
-                  title={t('search.runningTooltip', 'Running sessions')}
-                  className={cn(
-                    "flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-normal transition-all",
-                    searchMode === 'running'
-                      ? "bg-background shadow-sm text-foreground ring-1 ring-emerald-500/15"
-                      : "text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  <span className="relative flex h-3 w-3 items-center justify-center">
-                    <Activity className={cn("h-3 w-3", runningSessionsCount > 0 && "text-emerald-500")} />
-                    {runningSessionsCount > 0 && (
-                      <span className="absolute -right-2.5 -top-2 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-emerald-500 px-0.5 text-[8px] font-semibold leading-none text-white shadow-sm ring-1 ring-background">
-                        {runningBadgeText}
-                      </span>
-                    )}
-                  </span>
-                  <span className="sr-only">{t('search.modeRunning', 'Running')}</span>
-                </button>
-              </Tooltip>
-              <Tooltip content={t('search.archiveOnlyTooltip', 'Archive only')} position="top">
-                <button
-                  onClick={() => onSearchModeChange('archived')}
-                  aria-pressed={searchMode === 'archived'}
-                  aria-label={t('search.archiveOnlyTooltip', 'Archive only')}
-                  title={t('search.archiveOnlyTooltip', 'Archive only')}
-                  className={cn(
-                    "flex items-center justify-center rounded-md px-2.5 py-1.5 text-xs font-normal transition-all",
-                    searchMode === 'archived'
-                      ? "bg-background shadow-sm text-foreground"
-                      : "text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  <Archive className="h-3 w-3" />
-                </button>
-              </Tooltip>
-            </div>
+            {filterDropdown}
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/50" />
               <Input
@@ -365,7 +355,7 @@ export default function SidebarHeader({
         <NewConversationDialog
           projects={projects}
           selectedProjectId={selectedProjectId}
-          onSelectProject={(project) => {
+          onSelectProject={(project, _model) => {
             setNewConversationOpen(false);
             onNewSession(project);
           }}
@@ -374,5 +364,29 @@ export default function SidebarHeader({
         />
       )}
     </div>
+  );
+}
+
+function FilterItem({
+  label,
+  active,
+  onClick,
+}: {
+  label: ReactNode;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        'flex w-full items-center justify-between gap-2 rounded-md px-3 py-1.5 text-left text-xs transition-colors',
+        active ? 'bg-primary/10 font-medium text-primary' : 'text-foreground hover:bg-accent/60',
+      )}
+    >
+      <span className="flex min-w-0 items-center gap-1.5">{label}</span>
+      {active && <Check className="h-3 w-3 flex-shrink-0" />}
+    </button>
   );
 }

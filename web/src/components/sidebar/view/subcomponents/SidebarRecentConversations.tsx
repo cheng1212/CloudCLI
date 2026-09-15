@@ -32,6 +32,8 @@ type SidebarRecentConversationsProps = {
   ) => void;
   onLoadMore: () => void;
   onRetry: () => void;
+  /** When set, only conversations of this project id are listed. */
+  projectFilterId?: string | null;
   onTogglePin: (sessionId: string, isPinned: boolean) => void;
   onStartEditingSession: (sessionId: string, initialName: string) => void;
   onSaveEditingSession: (projectName: string, sessionId: string, summary: string, provider: LLMProvider) => void;
@@ -82,6 +84,7 @@ export default function SidebarRecentConversations({
   onConversationSelect,
   onLoadMore,
   onRetry,
+  projectFilterId,
   onTogglePin,
   onStartEditingSession,
   onSaveEditingSession,
@@ -101,6 +104,10 @@ export default function SidebarRecentConversations({
   onRequestBulkDelete,
   t,
 }: SidebarRecentConversationsProps) {
+  const visibleConversations = projectFilterId
+    ? conversations.filter((conversation) => conversation.projectId === projectFilterId)
+    : conversations;
+
   if (isLoading && conversations.length === 0) {
     return <RecentConversationSkeleton />;
   }
@@ -119,7 +126,7 @@ export default function SidebarRecentConversations({
     );
   }
 
-  if (conversations.length === 0) {
+  if (visibleConversations.length === 0) {
     return (
       <div className="px-4 py-10 text-center">
         <MessageSquare className="mx-auto mb-3 h-6 w-6 text-muted-foreground" />
@@ -127,7 +134,9 @@ export default function SidebarRecentConversations({
           {t('recent.emptyTitle', 'No conversations yet')}
         </p>
         <p className="mt-1 text-xs text-muted-foreground">
-          {t('recent.emptyDescription', 'Your most recently updated conversations will appear here.')}
+          {projectFilterId
+            ? t('recent.emptyFiltered', '该项目下暂无会话')
+            : t('recent.emptyDescription', 'Your most recently updated conversations will appear here.')}
         </p>
       </div>
     );
@@ -187,7 +196,7 @@ export default function SidebarRecentConversations({
       )}
 
       <div className={cn('min-h-0 flex-1 space-y-0.5', isBulkMode && 'overflow-y-auto pb-1')}>
-        {conversations.map((conversation) => {
+        {visibleConversations.map((conversation) => {
           const isSelected = String(selectedSession?.id ?? '') === conversation.sessionId;
           const isBulkSelected = bulkSelectedSessionIds.has(conversation.sessionId);
           const age = formatCompactAge(conversation.lastActivity, currentTime);

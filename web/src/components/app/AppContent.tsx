@@ -1,5 +1,5 @@
 import { useCallback, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 
 import Sidebar from '../sidebar/view/Sidebar';
@@ -50,6 +50,7 @@ export default function AppContent() {
 
 function AppContentInner() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { sessionId } = useParams<{ sessionId?: string }>();
   const { t } = useTranslation('common');
   const { isMobile } = useDeviceSettings({ trackPWA: false });
@@ -86,6 +87,15 @@ function AppContentInner() {
     isMobile,
     activeSessions: processingSessions,
   });
+
+  // Entering the app (home route, no conversation open) opens the sidebar
+  // drawer so the conversation list is the first thing on screen — pick a
+  // session to proceed instead of landing inside a chat or a picker page.
+  useEffect(() => {
+    if (location.pathname === '/' && !sessionId) {
+      setSidebarOpen(true);
+    }
+  }, [location.pathname, sessionId, setSidebarOpen]);
 
   // Queued messages for sessions that finish while another session (or none)
   // is being viewed are sent from here; the viewed session's composer handles
